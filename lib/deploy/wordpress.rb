@@ -77,6 +77,18 @@ Capistrano::Configuration.instance.load do
     task :wordpress do
       deploy.setup
       db.setup
+      
+      if server == :nginx
+        nginx.setup
+        nginx.configure
+        nginx.restart
+      end
+      
+      if server == :apache
+        apache.configure
+        apache.restart
+      end
+      
       wp.setup
     end
 
@@ -183,7 +195,7 @@ Capistrano::Configuration.instance.load do
     desc "Creates a vhost configuration file and restarts apache"
     task :configure do
       aliases = []
-      aliases << "www.#{domain}"
+      aliases << domain
       aliases.concat fetch(:server_aliases, [])
       set :server_aliases_array, aliases
 
@@ -191,8 +203,13 @@ Capistrano::Configuration.instance.load do
       template = File.read(file)
       buffer = ERB.new(template).result(binding)
 
-      put buffer, "#{shared_path}/#{application}.conf"
-      sudo "mv #{shared_path}/#{application}.conf /etc/httpd/conf.d/"
+      put buffer, "#{shared_path}/#{domain}.conf"
+      sudo "mv #{shared_path}/#{domain}.conf /etc/httpd/conf.d/"
+      puts "#{domain} installed. please run apache:restart to activate these changes."
+    end
+    
+    desc "Restarts apache server"
+    task :restart do
       sudo "/etc/init.d/httpd restart"
     end
   end

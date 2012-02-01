@@ -43,6 +43,8 @@ set :wordpress_secure_auth_key, Digest::SHA1.hexdigest(rand.to_s)
 set :wordpress_logged_in_key, Digest::SHA1.hexdigest(rand.to_s)
 set :wordpress_nonce_key, Digest::SHA1.hexdigest(rand.to_s)
 
+set :server, :nginx
+
 # nginx setting
 set :nginx_path, "/etc/nginx"
 

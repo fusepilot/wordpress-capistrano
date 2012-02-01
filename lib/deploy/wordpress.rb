@@ -3,22 +3,6 @@ require 'digest'
 require 'digest/sha1'
 Capistrano::Configuration.instance.load do
   default_run_options[:pty] = true
-  set :deploy_to, "/var/www/apps/#{application}"
-  set :scm, "git"
-  set :user, "wordpress"
-  set :admin_runner, user
-  set :runner, user
-  set :deploy_via, :remote_cache
-  set :branch, "master"
-  set :git_enable_submodules, 1
-  set :initial_puppet_tarball_url, "http://github.com/jestro/puppet-lamp/tarball/master"
-  set :puppet_git_repo_url, "git://github.com/jestro/puppet-lamp.git"
-  set :wordpress_db_host, "localhost"
-  set :wordpress_svn_url, "http://svn.automattic.com/wordpress/tags/2.7"
-  set :wordpress_auth_key, Digest::SHA1.hexdigest(rand.to_s)
-  set :wordpress_secure_auth_key, Digest::SHA1.hexdigest(rand.to_s)
-  set :wordpress_logged_in_key, Digest::SHA1.hexdigest(rand.to_s)
-  set :wordpress_nonce_key, Digest::SHA1.hexdigest(rand.to_s)
 
   #allow deploys w/o having git installed locally
   set(:real_revision) do
@@ -85,9 +69,8 @@ Capistrano::Configuration.instance.load do
     desc "Setup a new server for use with wordpress-capistrano. This runs as root."
     task :server do
       set :user, 'root'
-      puppet.install_and_run
       util.users
-      mysql.password
+      #mysql.password
       util.generate_ssh_keys
     end
 
@@ -96,9 +79,9 @@ Capistrano::Configuration.instance.load do
       sudo "mkdir -p /var/www/apps"
       sudo "chown -R wordpress /var/www/apps"
       deploy.setup
-      mysql.create_databases
+      #mysql.create_databases
       wp.config
-      apache.configure
+      #apache.configure
       wp.checkout
     end
 
@@ -227,79 +210,6 @@ Capistrano::Configuration.instance.load do
 
       put buffer, "#{shared_path}/wp-config.php"
       puts "New wp-config.php uploaded! Please run cap:deploy to activate these changes."
-    end
-
-  end
-
-  namespace :puppet do
-
-    task :install_and_run do
-      set :user, 'root'
-      users
-      install_dependencies
-      download
-      update
-    end
-
-    task :users do
-      set :user, 'root'
-      run "groupadd -f puppet"
-      run "useradd -g puppet puppet || echo"
-    end
-
-    task :install_dependencies do
-      set :user, 'root'
-      #install ruby and curl
-      run "yum install -y ruby ruby-devel ruby-libs ruby-rdoc ruby-ri curl which openssl-devel zlib-devel"
-
-      #install rubygems
-      run "cd /tmp && curl -OL http://rubyforge.org/frs/download.php/45905/rubygems-1.3.1.tgz"
-      run "cd /tmp && tar xfz rubygems-1.3.1.tgz"
-      run "cd /tmp/rubygems-1.3.1 && sudo ruby setup.rb"
-
-      #install puppet
-      run "gem install facter puppet --no-rdoc --no-ri"
-
-      #setup puppet dir
-      run "mkdir -p /var/puppet"
-    end
-
-    task :download do
-      run "cd /tmp && mkdir puppet"
-      run "cd /tmp/puppet && curl -L #{initial_puppet_tarball_url} | tar xz"
-      run "rm -rf /etc/puppet"
-      run "mv /tmp/puppet/* /etc/puppet"
-      run "rm -rf /tmp/puppet*"
-    end
-
-    task :switch_to_git do
-      unless (capture("sudo ls /etc/puppet/.git > /dev/null 2>&1 && echo 'true' || echo 'false'").chomp == 'true')
-        run "git clone #{puppet_git_repo_url} /home/wordpress/puppet" do |ch, stream, data|
-          case stream
-          when :out
-            if data =~ /\(yes\/no\)\?/ # first time connecting via ssh, add to known_hosts?
-              puts data
-              ch.send_data "yes\n"
-            else
-              puts data
-            end
-          when :err then warn "[err :: #{ch[:server]}] #{data}"
-          end
-        end
-        run "sudo rm -rf /etc/puppet"
-        run "sudo ln -s /home/wordpress/puppet /etc/puppet"
-        run "sudo chown -R wordpress /etc/puppet"
-      end
-    end
-
-    task :update_from_git do
-      switch_to_git
-      run "cd /etc/puppet && git pull origin master"
-      update
-    end
-
-    task :update do
-      run "sudo sh -c 'PATH=/usr/local/bin:/bin:/usr/bin:/sbin:/usr/sbin:/usr/local/sbin puppet /etc/puppet/manifests/site.pp'"
     end
 
   end

@@ -5,6 +5,10 @@ role :web, "#{domain}"
 # deploy location
 set :deploy_to, "/var/www/#{domain}"
 
+set :user, "www-data"
+set :admin_runner, user
+set :runner, user
+
 # unless set here, we prompt you for these three on `cap setup:wordpress`
 set :wordpress_db_name, ""
 set :wordpress_db_user, ""

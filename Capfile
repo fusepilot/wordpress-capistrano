@@ -26,6 +26,7 @@ set :scm, :git
 set :branch, "master"
 set :deploy_via, :remote_cache
 set :scm_verbose, true
+set :git_enable_submodules, 1
 
 require File.join(File.dirname(__FILE__), 'lib', 'deploy', 'wordpress')
 

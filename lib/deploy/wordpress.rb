@@ -1,4 +1,5 @@
 require 'erb'
+
 Capistrano::Configuration.instance.load do
   default_run_options[:pty] = true
 
@@ -131,6 +132,52 @@ Capistrano::Configuration.instance.load do
     end
 
   end
+  
+  namespace :nginx do
+    desc "Setups nginx for wordpress."
+    task :setup do
+      wordpress_params = File.join(File.dirname(__FILE__), "..", "nginx", "wordpress_params.conf.erb")
+      template = File.read(wordpress_params)
+      buffer = ERB.new(template).result(binding)
+      
+      put buffer, "#{shared_path}/wordpress_params.conf"
+      sudo "mv #{shared_path}/wordpress_params.conf #{nginx_path}/wordpress_params"
+      puts "wordpress_params.conf. please run nginx:restart to activate these changes."
+    end
+    
+    desc "Creates a nginx configuration file and restarts nginx."
+    task :configure do
+      aliases = []
+      aliases << domain
+      aliases.concat fetch(:server_aliases, [])
+      set :domains, aliases.join(", ")
+
+      file = File.join(File.dirname(__FILE__), "..", "nginx", "nginx.conf.erb")
+      template = File.read(file)
+      buffer = ERB.new(template).result(binding)
+      
+      put buffer, "#{shared_path}/#{domain}.conf"
+      sudo "mv #{shared_path}/#{domain}.conf #{nginx_path}/sites-available/#{domain}"
+      sudo "ln -s #{nginx_path}/sites-available/#{domain} #{nginx_path}/sites-enabled/#{domain}"
+      puts "#{domain} installed. please run nginx:restart to activate these changes."
+    end
+    
+    desc "Restarts the nginx server"
+    task :restart do
+      sudo "/etc/init.d/nginx reload"
+      sudo "/etc/init.d/nginx restart"
+    end
+    
+    desc "Stops the nginx server"
+    task :stop do
+      sudo "/etc/init.d/nginx stop"
+    end
+    
+    desc "Starts the nginx server"
+    task :starts do
+      sudo "/etc/init.d/nginx start"
+    end
+  end
 
   namespace :apache do
     desc "Creates a vhost configuration file and restarts apache"
@@ -140,7 +187,7 @@ Capistrano::Configuration.instance.load do
       aliases.concat fetch(:server_aliases, [])
       set :server_aliases_array, aliases
 
-      file = File.join(File.dirname(__FILE__), "..", "vhost.conf.erb")
+      file = File.join(File.dirname(__FILE__), "..", "apache", "vhost.conf.erb")
       template = File.read(file)
       buffer = ERB.new(template).result(binding)
 

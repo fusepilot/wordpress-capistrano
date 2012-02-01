@@ -1,0 +1,44 @@
+index	index.php;
+
+location = /favicon.ico {
+  log_not_found off;
+  access_log off;
+}
+
+location = /robots.txt {
+  allow all;
+  log_not_found off;
+  access_log off;
+}
+
+location / {
+	try_files $uri $uri/ @wordpress;
+}
+
+location @wordpress {
+ 	rewrite ^/([_0-9a-zA-Z-]+/)?files/(.+) /wp-includes/ms-files.php?file=$2 last;
+  rewrite ^/([_0-9a-zA-Z-]+/)?wp-admin$ /$1wp-admin/ permanent;
+  rewrite ^/[_0-9a-zA-Z-]+/(wp-(content|admin|includes).*) /$1 last;
+  rewrite ^/[_0-9a-zA-Z-]+/(.*\.php)?$ /$1 last;
+	rewrite .* /index.php last;
+}
+
+location ~ \.php$ {
+	if (!-e $request_filename) {
+      rewrite ^/[_0-9a-zA-Z-]+/(wp-(content|admin|includes).*) /$1 last;
+      rewrite ^/[_0-9a-zA-Z-]+/(.*\.php)?$ /$1 last;
+      rewrite .* /index.php last;
+      return 404;
+  }
+
+	fastcgi_index index.php;
+  fastcgi_intercept_errors on;
+  fastcgi_split_path_info ^(.+\.php)(.*)$;
+
+  include fastcgi_params;
+}
+
+location ~* \.(js|css|png|jpg|jpeg|gif|ico)$ {
+  expires max;
+  log_not_found off;
+}

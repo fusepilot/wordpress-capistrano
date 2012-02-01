@@ -43,8 +43,12 @@ set :wordpress_secure_auth_key, Digest::SHA1.hexdigest(rand.to_s)
 set :wordpress_logged_in_key, Digest::SHA1.hexdigest(rand.to_s)
 set :wordpress_nonce_key, Digest::SHA1.hexdigest(rand.to_s)
 
+# nginx setting
+set :nginx_path, "/etc/nginx"
+
 # these are used for dumping local databases
 set :local_mysql, "/usr/bin/mysql"
 set :local_mysql_database, ""
 set :local_mysql_user, ""
 set :local_mysql_password, ""
+

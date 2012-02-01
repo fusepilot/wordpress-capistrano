@@ -1,6 +1,7 @@
 set :domain, "www.example.com"
 
-role :web, "#{domain}"
+role :web, domain
+role :db,  domain, :primary => true
 
 # deploy location
 set :deploy_to, "/var/www/#{domain}"

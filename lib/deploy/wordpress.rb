@@ -25,10 +25,6 @@ Capistrano::Configuration.instance.load do
   #no need for log and pids directory
   set :shared_children, %w(system)
 
-  role :app, domain
-  role :web, domain
-  role :db,  domain, :primary => true
-
   namespace :deploy do
     desc "Override deploy restart to not do anything"
     task :restart do
@@ -58,7 +54,11 @@ Capistrano::Configuration.instance.load do
         end
       end
 
-      run "rm -f #{current_path} && ln -s #{latest_release}/finalized #{current_path}"
+      run <<-CMD
+        rm -f #{current_path} && 
+        ln -s #{shared_path}/uploads #{latest_release}/finalized/wp-content/uploads &&
+        ln -s #{latest_release}/finalized #{current_path}
+      CMD
     end
   end
 
@@ -74,13 +74,9 @@ Capistrano::Configuration.instance.load do
 
     desc "Setup this server for a new wordpress site."
     task :wordpress do
-      sudo "mkdir -p /var/www/apps"
-      sudo "chown -R wordpress /var/www/apps"
       deploy.setup
-      #mysql.create_databases
-      wp.config
-      #apache.configure
-      wp.checkout
+      db.setup
+      wp.setup
     end
 
   end
@@ -154,7 +150,11 @@ Capistrano::Configuration.instance.load do
     end
   end
 
-  namespace :mysql do
+  namespace :db do
+    
+    task :setup do
+      run "mkdir -p #{shared_path}/dumps"
+    end
 
     desc "Sets the MySQL root password, assuming there is none"
     task :password do
@@ -194,29 +194,41 @@ Capistrano::Configuration.instance.load do
       run "mysql -u #{wordpress_db_user} --password=#{wordpress_db_password} #{wordpress_db_name} -e '#{replace_home_and_siturl}'"
     end
     
-    desc "Dump remote database."
-	  task :dump_remote do
+    desc "Dump database."
+	  task :dump do
 	    filename = "#{Time.now.strftime '%Y%m%dT%H%M%S'}.sql"
 	    run "mysqldump -u #{wordpress_db_user} --password=#{wordpress_db_password} #{wordpress_db_name} > #{shared_path}/dumps/#{filename}"
 	    run "ln -nfs #{shared_path}/dumps/#{filename} #{shared_path}/dumps/latest.sql"
     end
     
-    desc "Dumps local database and uploads it to the server."
-	  task :upload do
-	    dump = `#{local_mysql}dump -u #{local_mysql_user} --password=#{local_mysql_password}  #{local_mysql_database}`
-	    filename = "#{Time.now.strftime '%Y%m%dT%H%M%S'}.sql"
-	    put dump, "#{shared_path}/dumps/#{filename}"
-	    run "ln -nfs #{shared_path}/dumps/#{filename} #{shared_path}/dumps/latest.sql"
+    namespace :local do
+      
+      desc "Dumps local database and uploads it to the server."
+  	  task :upload do
+  	    dump = `#{local_mysql}dump -u #{local_mysql_user} --password=#{local_mysql_password}  #{local_mysql_database}`
+  	    filename = "#{Time.now.strftime '%Y%m%dT%H%M%S'}.sql"
+  	    put dump, "#{shared_path}/dumps/#{filename}"
+  	    run "ln -nfs #{shared_path}/dumps/#{filename} #{shared_path}/dumps/latest.sql"
+      end
     end
-
+    
     desc "Loads latest.sql from shared/db/dumps"
-    task :import_latest_database do
+    task :import_latest_dump do
       run "mysql -u #{wordpress_db_user} --password=#{wordpress_db_password} #{wordpress_db_name} < #{shared_path}/dumps/latest.sql"
     end
     
   end
 
   namespace :wp do
+    
+    task :setup do
+      run <<-CMD
+        mkdir -p #{shared_path}/uploads
+      CMD
+      
+      wp.config
+      wp.checkout
+    end
     
     desc "Checks out a copy of wordpress to a shared location."
     task :checkout do
@@ -232,9 +244,15 @@ Capistrano::Configuration.instance.load do
       buffer = ERB.new(template).result(binding)
 
       put buffer, "#{shared_path}/wp-config.php"
-      puts "New wp-config.php uploaded! Please run cap:deploy to activate these changes."
+      puts "wp-config.php uploaded. Please run cap:deploy to activate these changes."
     end
-
+    
+    desc "Upload local uploads to shared uploads"
+    task :upload_uploads do
+      upload "uploads", "#{shared_path}", via: :scp, recursive: true
+      puts "Uploaded files. Please run cap:deploy to symlink these files."
+    end
+    
   end
 
 end

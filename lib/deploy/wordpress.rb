@@ -1,6 +1,4 @@
 require 'erb'
-require 'digest'
-require 'digest/sha1'
 Capistrano::Configuration.instance.load do
   default_run_options[:pty] = true
 
@@ -68,10 +66,10 @@ Capistrano::Configuration.instance.load do
 
     desc "Setup a new server for use with wordpress-capistrano. This runs as root."
     task :server do
-      set :user, 'root'
-      util.users
+      #set :user, 'root'
+      #util.users
       #mysql.password
-      util.generate_ssh_keys
+      #util.generate_ssh_keys
     end
 
     desc "Setup this server for a new wordpress site."
@@ -190,20 +188,45 @@ Capistrano::Configuration.instance.load do
       put file, "#{shared_path}/import.sql"
       run "mysql -u#{wordpress_db_user} -p#{wordpress_db_password} #{wordpress_db_name} < #{shared_path}/import.sql"
     end
+    
+    task :fix_home_site_url do
+	    replace_home_and_siturl = "UPDATE wp_options SET option_value = \"http://#{domain}\" WHERE option_name = \"home\" OR option_name = \"siteurl\";"
+      run "mysql -u #{wordpress_db_user} --password=#{wordpress_db_password} #{wordpress_db_name} -e '#{replace_home_and_siturl}'"
+    end
+    
+    desc "Dump remote database."
+	  task :dump_remote do
+	    filename = "#{Time.now.strftime '%Y%m%dT%H%M%S'}.sql"
+	    run "mysqldump -u #{wordpress_db_user} --password=#{wordpress_db_password} #{wordpress_db_name} > #{shared_path}/dumps/#{filename}"
+	    run "ln -nfs #{shared_path}/dumps/#{filename} #{shared_path}/dumps/latest.sql"
+    end
+    
+    desc "Dumps local database and uploads it to the server."
+	  task :upload do
+	    dump = `#{local_mysql}dump -u #{local_mysql_user} --password=#{local_mysql_password}  #{local_mysql_database}`
+	    filename = "#{Time.now.strftime '%Y%m%dT%H%M%S'}.sql"
+	    put dump, "#{shared_path}/dumps/#{filename}"
+	    run "ln -nfs #{shared_path}/dumps/#{filename} #{shared_path}/dumps/latest.sql"
+    end
 
+    desc "Loads latest.sql from shared/db/dumps"
+    task :import_latest_database do
+      run "mysql -u #{wordpress_db_user} --password=#{wordpress_db_password} #{wordpress_db_name} < #{shared_path}/dumps/latest.sql"
+    end
+    
   end
 
   namespace :wp do
-
-    desc "Checks out a copy of wordpress to a shared location"
+    
+    desc "Checks out a copy of wordpress to a shared location."
     task :checkout do
       run "rm -rf #{shared_path}/wordpress || true"
-      run "svn co #{wordpress_svn_url} #{shared_path}/wordpress"
+      run "git clone #{wordpress_git_url} #{shared_path}/wordpress -b #{wordpress_git_branch}"
     end
 
     desc "Sets up wp-config.php"
     task :config do
-      util.passwords
+      #util.passwords
       file = File.join(File.dirname(__FILE__), "..", "wp-config.php.erb")
       template = File.read(file)
       buffer = ERB.new(template).result(binding)

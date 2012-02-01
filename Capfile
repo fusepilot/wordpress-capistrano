@@ -1,12 +1,12 @@
 require 'rubygems'
+require "bundler/setup"
 require 'railsless-deploy'
 require 'capistrano/ext/multistage'
 require "highline/import"
+require 'digest'
+require 'digest/sha1'
 
 load 'deploy'
-
-# the domain name for the server you'll be running wordpress on
-set :domain, "localhost"
 
 # other domain names your app will respond to (dev.blog.com, etc)
 #set :server_aliases, []
@@ -28,7 +28,7 @@ set :deploy_via, :remote_cache
 set :scm_verbose, true
 set :git_enable_submodules, 1
 
-require File.join(File.dirname(__FILE__), 'lib', 'deploy', 'wordpress')
+require File.join(File.dirname(__FILE__), 'config', 'deploy', 'wordpress')
 
 # Customizations
 #==============
@@ -38,10 +38,10 @@ set :wordpress_git_url, "git://github.com/markjaquith/WordPress.git"
 set :wordpress_git_branch, "3.3-branch"
 
 # these are randomized on `cap setup:wordpress`
-# set :wordpress_auth_key, Digest::SHA1.hexdigest(rand.to_s)
-# set :wordpress_secure_auth_key, Digest::SHA1.hexdigest(rand.to_s)
-# set :wordpress_logged_in_key, Digest::SHA1.hexdigest(rand.to_s)
-# set :wordpress_nonce_key, Digest::SHA1.hexdigest(rand.to_s)
+set :wordpress_auth_key, Digest::SHA1.hexdigest(rand.to_s)
+set :wordpress_secure_auth_key, Digest::SHA1.hexdigest(rand.to_s)
+set :wordpress_logged_in_key, Digest::SHA1.hexdigest(rand.to_s)
+set :wordpress_nonce_key, Digest::SHA1.hexdigest(rand.to_s)
 
 # these are used for dumping local databases
 set :local_mysql, "/usr/bin/mysql"
